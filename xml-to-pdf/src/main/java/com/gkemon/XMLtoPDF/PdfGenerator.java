@@ -8,12 +8,14 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.pdf.PdfDocument;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Environment;
 import android.os.ParcelFileDescriptor;
 import android.os.StrictMode;
 import android.provider.DocumentsContract;
 import android.text.TextUtils;
 import android.view.View;
+import android.widget.Toast;
 
 import androidx.activity.ComponentActivity;
 import androidx.activity.result.ActivityResultLauncher;
@@ -23,6 +25,7 @@ import androidx.annotation.IdRes;
 import androidx.annotation.LayoutRes;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.core.content.FileProvider;
 import androidx.lifecycle.DefaultLifecycleObserver;
@@ -558,37 +561,63 @@ public class PdfGenerator {
                             " Permission taking popup (using https://github.com/Karumi/Dexter) is going " +
                             "to be shown");
                 }
-                Dexter.withContext(context)
-                        .withPermissions(Manifest.permission.WRITE_EXTERNAL_STORAGE,
-                                Manifest.permission.READ_EXTERNAL_STORAGE)
-                        .withListener(new MultiplePermissionsListener() {
-                            @Override
-                            public void onPermissionsChecked(MultiplePermissionsReport multiplePermissionsReport) {
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M || android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                    if (ActivityCompat.checkSelfPermission(context, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED || ActivityCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+                        // When permission is not granted
+                        // Result permission
+                        ActivityCompat.requestPermissions(
+                                (Activity) context,
+                                new String[]{
+                                        Manifest.permission.READ_EXTERNAL_STORAGE},
+                                1);
+                        ActivityCompat.requestPermissions(
+                                (Activity) context,
+                                new String[]{
+                                        Manifest.permission.WRITE_EXTERNAL_STORAGE},
+                                1);
+                        print();
+                        Toast.makeText(context, "printing...", Toast.LENGTH_SHORT).show();
+                    } else {
+                        // When permission is granted
+                        // Create method
+                        print();
+                        Toast.makeText(context, "Opening...", Toast.LENGTH_SHORT).show();
+                    }
 
-                                for (PermissionDeniedResponse deniedResponse :
-                                        multiplePermissionsReport.getDeniedPermissionResponses()) {
-                                    postLog("Denied permission: " + deniedResponse.getPermissionName());
+                } else {
+
+                    Dexter.withContext(context)
+                            .withPermissions(Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                                    Manifest.permission.READ_EXTERNAL_STORAGE)
+                            .withListener(new MultiplePermissionsListener() {
+                                @Override
+                                public void onPermissionsChecked(MultiplePermissionsReport multiplePermissionsReport) {
+
+                                    for (PermissionDeniedResponse deniedResponse :
+                                            multiplePermissionsReport.getDeniedPermissionResponses()) {
+                                        postLog("Denied permission: " + deniedResponse.getPermissionName());
+                                    }
+                                    for (PermissionGrantedResponse grantedResponse :
+                                            multiplePermissionsReport.getGrantedPermissionResponses()) {
+                                        postLog("Granted permission: " + grantedResponse.getPermissionName());
+                                    }
+                                    if (multiplePermissionsReport.areAllPermissionsGranted()) {
+                                        print();
+                                    } else
+                                        postLog("All necessary permission is not granted by user. Please do that first");
+
                                 }
-                                for (PermissionGrantedResponse grantedResponse :
-                                        multiplePermissionsReport.getGrantedPermissionResponses()) {
-                                    postLog("Granted permission: " + grantedResponse.getPermissionName());
+
+                                @Override
+                                public void onPermissionRationaleShouldBeShown(List<PermissionRequest> list, PermissionToken permissionToken) {
+
                                 }
-                                if (multiplePermissionsReport.areAllPermissionsGranted()) {
-                                    print();
-                                } else
-                                    postLog("All necessary permission is not granted by user. Please do that first");
-
-                            }
-
-                            @Override
-                            public void onPermissionRationaleShouldBeShown(List<PermissionRequest> list, PermissionToken permissionToken) {
-
-                            }
-                        })
-                        .withErrorListener(error -> postLog("Error from Dexter " +
-                                "(https://github.com/Karumi/Dexter) but this library is not maintaining " +
-                                "anymore so please look at this issue - https://github.com/Gkemon/Android-XML-to-PDF-Generator/issues/54#issuecomment-1550307371 " +
-                                error.toString())).check();
+                            })
+                            .withErrorListener(error -> postLog("Error from Dexter " +
+                                    "(https://github.com/Karumi/Dexter) but this library is not maintaining " +
+                                    "anymore so please look at this issue - https://github.com/Gkemon/Android-XML-to-PDF-Generator/issues/54#issuecomment-1550307371 " +
+                                    error.toString())).check();
+                }
             }
 
         }
